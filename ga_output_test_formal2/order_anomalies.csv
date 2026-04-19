@@ -1,0 +1,12 @@
+﻿order_id,product_name,severity,anomaly_type,exclude_from_optimization,message,due_date,raw_ready_date,material_ready_date,manufacturing_batch_count,filling_minutes,bottling_minutes
+P075,玻尿酸保濕滲透乳液50ml,warning,tight_manufacturing_window,N,manufacturing window is only 4 day(s) for 10 batch(es),2023-03-22,2023-02-21,2023-02-24,10,600.0,375.0
+P076,水感全效防曬乳 SPF50+/★★★★,warning,tight_manufacturing_window,N,manufacturing window is only 0 day(s) for 15 batch(es),2023-04-07,2023-03-02,2023-03-01,15,1500.0,0
+P014,8%杏仁酸淨痘精華30ML,exclude,raw_ready_after_due,Y,raw_ready_date 2023-06-06 is later than due_date 2023-04-25,2023-04-25,2023-06-06,2023-06-09,1,500.0,462.0
+P014,8%杏仁酸淨痘精華30ML,exclude,material_ready_after_due,Y,material_ready_date 2023-06-09 is later than due_date 2023-04-25,2023-04-25,2023-06-06,2023-06-09,1,500.0,462.0
+P014,8%杏仁酸淨痘精華30ML,exclude,no_bottling_day_before_due,Y,"requires one bottling day before filling, but material_ready_date 2023-06-09 leaves no valid day before due_date 2023-04-25",2023-04-25,2023-06-06,2023-06-09,1,500.0,462.0
+P070,未來美超級A醇緊緻透亮身體乳180ML,warning,tight_manufacturing_window,N,manufacturing window is only 0 day(s) for 9 batch(es),2023-06-16,2023-05-22,2023-05-12,9,300.0,188.0
+P127,玻尿酸保濕滲透乳液50ml,warning,tight_manufacturing_window,N,manufacturing window is only 0 day(s) for 10 batch(es),2023-07-13,2023-02-21,2023-02-24,10,600.0,750.0
+P107,1.8%超效逆時A醇精華30ML,exclude,material_ready_after_due,Y,material_ready_date 2023-08-04 is later than due_date 2023-07-26,2023-07-26,2023-07-21,2023-08-04,3,273.0,215.0
+P107,1.8%超效逆時A醇精華30ML,exclude,no_bottling_day_before_due,Y,"requires one bottling day before filling, but material_ready_date 2023-08-04 leaves no valid day before due_date 2023-07-26",2023-07-26,2023-07-21,2023-08-04,3,273.0,215.0
+P115,玻尿酸超導潤澤精華30ml,exclude,material_ready_after_due,Y,material_ready_date 2023-08-10 is later than due_date 2023-07-31,2023-07-31,2023-07-21,2023-08-10,3,500.0,1000.0
+P115,玻尿酸超導潤澤精華30ml,exclude,no_bottling_day_before_due,Y,"requires one bottling day before filling, but material_ready_date 2023-08-10 leaves no valid day before due_date 2023-07-31",2023-07-31,2023-07-21,2023-08-10,3,500.0,1000.0

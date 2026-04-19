@@ -1,0 +1,3 @@
+﻿order_id,severity,issue_type,message
+P070,error,bottling_not_previous_day,Fill day 2023-06-14 has no bottling on the previous day.
+P069,error,bottling_not_previous_day,Fill day 2023-06-18 has no bottling on the previous day.

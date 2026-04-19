@@ -1,0 +1,3 @@
+﻿order_id,severity,issue_type,message
+P129,error,packaging_before_material_ready,Cat3 on 2023-08-16 is earlier than material_ready_date 2023-08-17.
+P128,error,packaging_before_material_ready,Cat3 on 2023-08-20 is earlier than material_ready_date 2023-08-21.
