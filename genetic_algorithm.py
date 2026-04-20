@@ -192,6 +192,239 @@ def build_schedule_summary(schedule: ScheduleResult) -> dict[str, float]:
     }
 
 
+OUTPUT_FIELD_NOTES: dict[str, dict[str, object]] = {
+    "best_schedule_tasks.csv": {
+        "table_note": "任務明細總表。用來逐筆檢查每張訂單在什麼日期做了哪一個工序，以及該工序占用了多少機器分鐘與人力分鐘。",
+        "fields": [
+            ("訂單", "GA 內部排程訂單編號。", "同一訂單的所有工序應可在這張表串成完整流程。", "若不是「總計」，就代表這一列真的有被安排進排程。"),
+            ("類別", "工序類別，例如預攪、攪料清洗、排瓶、充填。", "可快速辨認此列屬於製造段或充填段。", "一張正常要充填的訂單，通常會看到製造工序後接排瓶/充填工序。"),
+            ("明細", "更細的作業內容，通常包含產品、製程別、批次資訊。", "用來檢查同一批次是否有被拆得太碎，或流程命名是否合理。", "若同一產品同一天出現非常多重複零碎列，就值得回頭檢查排法。"),
+            ("日期", "此筆作業實際被安排的日曆日期。", "用來檢查是否晚於交期、是否符合前後工序順序。", "預攪應早於攪料清洗；排瓶原則上要早於或緊鄰充填。"),
+            ("機器類型", "此工序占用的主要機器或設備類型。", "可搭配每日製造/充填排程表檢查機器是否過載。", "若同一天同機器分鐘過高，就要再看是否超過可用產能。"),
+            ("機器分鐘", "這筆作業占用機器的總分鐘數。", "目前對外統一用整數顯示。", "若數值異常偏小或偏大，應回頭對照效能表與需求量。"),
+            ("人力類型", "此工序歸屬的人力池，例如調製、排瓶、充填。", "可對照每日負荷表，理解哪一種人力是瓶頸。", "排瓶與充填必須和調製分開看，不能混為同一組人力。"),
+            ("人力分鐘", "這筆作業消耗的人力分鐘。", "排瓶與調製通常看人力分鐘；充填摘要另外採機台分鐘口徑統計超時。", "若工序相同但人力分鐘和機器分鐘比例怪異，需回頭檢查標準配置人數。"),
+        ],
+    },
+    "best_schedule_daily_load.csv": {
+        "table_note": "每日負荷摘要表。這份表目前已改成和正式摘要一致的超時口徑，方便直接檢查哪一天、哪一類資源發生加班。",
+        "fields": [
+            ("日期", "每日負荷的統計日期。", "以天為單位檢查壅塞日。", "可用來找出加班集中在哪些日期。"),
+            ("人力類型", "統計對象，分為調製、排瓶、充填。", "調製看調製人力分鐘；排瓶看排瓶作業分鐘基準；充填看充填機台分鐘基準。", "這個欄位是理解超時口徑的關鍵。"),
+            ("已用人力分鐘", "該日該類資源實際被排進去的使用量。", "代表當日真正承載的工作量。", "若明顯高於正常人力分鐘，就表示發生加班。"),
+            ("正常人力分鐘", "模型設定下該類資源每日不加班時可承載的分鐘數。", "是計算超時的基準。", "排瓶與充填目前以流程瓶頸基準計算，不是單純總人頭乘 8 小時。"),
+            ("超時分鐘", "已用量扣掉正常量後的超出部分，不足則為 0。", "這欄加總後應和正式摘要的各類超時數接近或一致。", "若和 summary 對不起來，就表示統計口徑有問題。"),
+        ],
+    },
+    "schedule_summary.csv": {
+        "table_note": "正式摘要表。這是最適合報告時直接引用的總量結果。",
+        "fields": [
+            ("總加班分鐘數", "本次排程所有加班分鐘數的總和。", "通常等於調製超時 + 排瓶超時 + 充填超時。", "若和三者合計差太多，就要檢查摘要邏輯。"),
+            ("調製超時分鐘數", "調製端超出正常可承載量的分鐘數。", "反映製造是否壅塞。", "目前若是 0，代表調製端在現有模型下未超過日基準。"),
+            ("排瓶超時分鐘數", "排瓶端超出的分鐘數。", "常用來判斷是否是排瓶人力不足造成瓶頸。", "若遠大於充填超時，通常代表瓶頸集中在排瓶。"),
+            ("充填超時分鐘數", "充填端超出的分鐘數。", "反映充填機與流程的緊度。", "若很高，表示充填機台天數或產能安排需要再優化。"),
+            ("週末加班分鐘數", "落在週末的作業分鐘數。", "是額外風險指標，代表排程對假日的依賴。", "若此數值過高，代表平日容量可能不足。"),
+            ("總排瓶分鐘數", "整個排程所有排瓶工序的機器分鐘總和。", "可用來和排瓶超時一起判讀負荷強度。", "總量高但超時低，代表攤得開；總量高且超時高，代表排得很滿。"),
+            ("總充填分鐘數", "整個排程所有充填工序的機器分鐘總和。", "可與充填超時一起判斷充填段緊迫程度。", "適合和業主提供的充填 baseline 比較。"),
+        ],
+    },
+    "daily_manufacturing_schedule.csv": {
+        "table_note": "每日調製排程表。用來查每一天有哪些製造工序占用哪些機器。",
+        "fields": [
+            ("日期", "製造作業發生日期。", "可用來追工序先後與機器負荷。", "若製造太集中在少數幾天，通常容易形成清洗或人力壓力。"),
+            ("訂單", "該製造作業所屬訂單。", "可與任務明細表互相追蹤。", "應能在任務表找到同一筆作業。"),
+            ("類別", "預攪或攪料清洗。", "表示製造流程中的哪一段。", "預攪應先於攪料清洗。"),
+            ("明細", "含製程別與批次的詳細名稱。", "用來檢查是否確實按批次安排。", "若批次順序混亂，需要再對照業務規則。"),
+            ("機器類型", "當日此筆製造作業所占用的機器。", "用來看同機器是否塞太滿。", "同一台關鍵機器若常滿載，代表它可能是真瓶頸。"),
+            ("機器分鐘", "此筆製造工序占用機器多久。", "反映該批次作業時間。", "應與製造效能表的對應批次時間相近。"),
+            ("人力分鐘", "此筆製造工序占用調製人力多久。", "目前製造視為顧機，因此人力時間通常與作業時間同尺度。", "若出現極端不對稱，需要再查模型假設。"),
+            ("當日機器總分鐘", "同日同機器全部製造作業合計分鐘。", "用來看某台機器當天是否超量。", "適合和機器日容量或可用台數交叉檢查。"),
+            ("當日訂單總分鐘", "同日同訂單的製造分鐘合計。", "可用來看某張訂單是否把當天塞得太滿。", "若單日集中過多，容易後續影響前置與充填。"),
+            ("當日調製人力總分鐘", "該日整體調製人力被占用的總分鐘。", "可快速看調製是否接近滿載。", "若超過正常基準，就會對應到調製超時。"),
+        ],
+    },
+    "daily_packaging_schedule.csv": {
+        "table_note": "每日排瓶與充填排程表。這張表是找充填瓶頸最重要的檢查表。",
+        "fields": [
+            ("日期", "排瓶或充填發生日期。", "用來檢查前後工序是否合理。", "排瓶通常應在充填前一天或同一極緊迫情況下緊鄰處理。"),
+            ("訂單", "當日這筆排瓶/充填作業所屬訂單。", "可追蹤單張訂單的充填流程。", "搭配 reference format 可檢查時段切分是否合理。"),
+            ("類別", "GA 中的工序類別，對應排瓶或充填。", "快速識別此列屬於哪個瓶頸段。", "目前對外應以排瓶/充填中文理解。"),
+            ("工序", "流程名稱，通常是排瓶或充填。", "是給業主閱讀的流程欄。", "應與類別一致，不應出現互相矛盾。"),
+            ("明細", "產品名稱加上工序描述。", "用來辨認是哪一個產品在做排瓶或充填。", "若同一天同訂單同工序出現多列，應確認是否為必要分段。"),
+            ("機器類型", "該作業使用的充填設備或排瓶設備。", "用來檢查同機台每天有沒有塞滿。", "若特定機台長期高負荷，可能需優先優化。"),
+            ("機器分鐘", "該作業占用設備的分鐘數。", "目前對外顯示為整數。", "可與時段數乘 5 分鐘做交叉檢查。"),
+            ("人力分鐘", "該作業消耗的人力分鐘。", "排瓶通常較接近人工負擔；充填則常反映標準配置人數乘工時。", "若人力分鐘異常高，要回頭看標準配置人數。"),
+            ("當日工序總分鐘", "同一天同工序的總分鐘。", "顯示這一天排瓶或充填的總負荷。", "是找壅塞日的重要欄位。"),
+            ("當日機器總分鐘", "同一天同機器類型的總分鐘。", "可看設備是否集中爆量。", "若超過可用時數，代表非常緊。"),
+            ("當日訂單總分鐘", "同一天同一訂單在包裝段的總分鐘。", "用來看單張訂單是否在一天內塞入過多排瓶/充填。", "若非常高，可能表示排程過度集中。"),
+            ("當日工序人力總分鐘", "同一天同工序的人力分鐘總和。", "排瓶超時會特別受這欄影響。", "若大於正常分鐘很多，表示加班壓力大。"),
+            ("當日正常分鐘", "該工序當日不加班時的正常可承載分鐘。", "是超時判斷基準。", "排瓶與充填的正常分鐘目前都用流程瓶頸基準。"),
+            ("當日超時分鐘", "當日工序總量超出正常分鐘的部分。", "是最直接的單日超時訊號。", "把這欄加總後，應能對應到 summary 的排瓶/充填超時。"),
+        ],
+    },
+    "manufacturing_cleaning_audit.csv": {
+        "table_note": "調製清洗稽核表。用來檢查同機器同一天是否涉及多種不同製程，進而推估換產品清洗次數。",
+        "fields": [
+            ("日期", "清洗稽核的日期。", "以天為單位檢查換線/清洗風險。", "連續多天都有換產品時，要特別注意現場可行性。"),
+            ("機器類型", "被稽核的調製機器。", "例如預攪機、大乳機、小乳機等。", "關鍵機器出現多次換產品清洗時，代表排程切換頻繁。"),
+            ("當日機器總分鐘", "該日該機器被安排的總分鐘數。", "可反映機器負荷強度。", "若負荷很高又換產品多，實務風險會上升。"),
+            ("當日訂單數", "該日該機器碰到幾張不同訂單。", "可粗看當天是否切很多單。", "訂單數愈多，通常換產品風險愈高。"),
+            ("當日不同製程數", "該日該機器涉及幾種不同製程群組。", "用來估計清洗需求。", "如果大於 1，通常代表有切換。"),
+            ("推估換產品清洗次數", "用不同製程數推估的換產品清洗次數。", "目前是稽核指標，不是完整硬限制。", "若這欄偏高，應視為後續優化重點。"),
+            ("訂單清單", "當天在該機器上處理過的訂單集合。", "方便追查是哪幾張訂單造成切換。", "可和製程明細一起看切換來源。"),
+            ("製程明細", "當日該機器涉及的製程群組。", "可辨識是大乳/小乳/精等哪幾種流程在切換。", "若同一天混太多類型，合理性要特別檢查。"),
+        ],
+    },
+    "best_schedule_reference_format.csv": {
+        "table_note": "業主簡報格式對照表。這張表把排程轉成較接近簡報與檢查用途的欄位。",
+        "fields": [
+            ("訂單編號", "排程中的訂單識別碼。", "用來和其他所有表單串接。", "應可對應到 audit、tasks、anomalies。"),
+            ("子任務編號", "同一訂單下的子工序識別碼。", "用來辨識同一筆工序在 reference format 中的列。", "同一批次或同一工序通常會共用相近編號。"),
+            ("工序代碼", "內部工序碼，例如 Cat1~Cat4。", "Cat1=預攪、Cat2=攪料清洗、Cat3=排瓶、Cat4=充填。", "若要和業主溝通，建議搭配作業工序欄一起看。"),
+            ("工序順序", "模型設定的流程順序代碼。", "數字愈小表示流程愈前面。", "可用來快速檢查前後順序是否顛倒。"),
+            ("作業項目", "較大的作業分類，例如調製項、排瓶項、充填項。", "方便業主按大流程閱讀。", "應與工序代碼、作業工序一致。"),
+            ("作業工序", "實際流程名稱。", "這是簡報時最容易解讀的欄位。", "若和 tasks 表中的類別對不起來，就要查映射。"),
+            ("人力別", "此工序所屬人力類型。", "通常區分調製類型或充填類型。", "有助於理解人力資源是誰在負責。"),
+            ("機台別", "此子任務使用的設備。", "可對照每日排程與機器限制。", "同日同機台排滿時要看時段範圍是否合理。"),
+            ("標準配置人數", "來源效能或模型基準設定的人數。", "代表這個工序在資料來源中的基準配置。", "若與業主原始資料不一致，要先修資料或映射邏輯。"),
+            ("實際安排人數", "本次排程實際採用的人數。", "若為排瓶，可能因模型允許同時最多兩人而大於標準配置人數。", "若標準與實際差很多，要回頭檢查是否真的符合現場規則。"),
+            ("總需求量", "此工序整體需求的總單位數。", "製造工序通常表示批次需求，充填工序通常表示 5 分鐘 slot 需求量。", "適合和當日安排量一起看完成比例。"),
+            ("當日安排量", "這一天實際安排進去的單位數。", "是將總需求切到單日後的安排量。", "若總需求很大但安排量很小，表示排程攤得很開。"),
+            ("每單位時間(min)", "單位作業時間。", "製造通常是一整批的時間；排瓶/充填目前以 5 分鐘 slot 顯示。", "可用來理解總時間是怎麼累積出來的。"),
+            ("排程日期", "此子任務被安排的日期。", "搭配時段範圍可看到更細的日內位置。", "應滿足前後工序順序與交期限制。"),
+            ("時段範圍", "把一天切成 5 分鐘後，此任務在日內占用的起訖時段。", "主要用來做簡報視覺化與日內檢查。", "若同機台時段明顯重疊，就要再查 slot 指派邏輯。"),
+            ("時段數", "此任務總共占用幾個 5 分鐘時段。", "乘以 5 分鐘後應接近作業總時間。", "可用來檢查時段與分鐘是否一致。"),
+            ("排程類型", "目前輸出多為正常。", "保留給後續標記急單、例外處理等用途。", "若未來出現特殊類型，要另外定義業務含義。"),
+            ("作業總時間(min)", "此列實際占用的總分鐘數。", "是 reference format 內最直接的時間量。", "應與 tasks 表的機器分鐘一致或接近。"),
+            ("需求單位數", "再次表達此工序總需求單位。", "主要是為了讓簡報表可單獨閱讀。", "應和總需求量口徑一致。"),
+            ("最早時段索引", "此任務在該機台當日排到的最早 slot 編號。", "0 代表 09:00 開始的第一個 5 分鐘時段。", "可用來判斷作業在一天中的相對前後位置。"),
+            ("最晚時段索引", "此任務在該機台當日排到的最晚 slot 編號。", "用來界定任務在日內占用到哪個時間點。", "若最晚索引過高，表示該天已排到很晚。"),
+        ],
+    },
+    "order_anomalies.csv": {
+        "table_note": "異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。",
+        "fields": [
+            ("order_id", "訂單編號。", "對應排程中的 order_id。", "可回頭查是否有出現在主排程內。"),
+            ("product_name", "產品名稱。", "方便業務與現場辨識。", "若產品名稱與訂單對不起來，要先檢查資料映射。"),
+            ("severity", "異常嚴重程度，常見為 exclude 或 warning。", "exclude 代表不進 GA 主優化集合；warning 代表仍可排但要注意。", "是判讀是否漏排的第一關鍵。"),
+            ("anomaly_type", "異常類型代碼。", "方便快速分類問題來源。", "若同一訂單有多種異常，會有多列。"),
+            ("exclude_from_optimization", "是否從主優化集合排除。", "Y 代表不會進正式排程；N 代表只是提醒。", "所有沒排進去的訂單都應先在這欄找到 Y。"),
+            ("message", "異常的文字說明。", "直接描述為什麼不合理或風險高。", "是最適合向老師或業主說明的欄位。"),
+            ("due_date", "交期。", "用來和 ready date 比較。", "若 ready 在 due 後，通常就是硬性無解。"),
+            ("raw_ready_date", "原料齊備可開始製造的日期。", "製造最早可動工的依據之一。", "若晚於交期，代表製造根本來不及。"),
+            ("material_ready_date", "物料/包材齊備可進包裝的日期。", "排瓶與充填是否可開始的重要日期。", "若晚於交期，通常直接無法排。"),
+            ("manufacturing_batch_count", "此訂單需要的總批次數。", "可看製造壓力。", "批次很多但窗期很短時，通常會被標 warning。"),
+            ("filling_minutes", "估算的充填分鐘。", "用來理解此單在充填段的負荷。", "分鐘太大時常是瓶頸來源。"),
+            ("bottling_minutes", "估算的排瓶分鐘。", "用來理解此單在排瓶段的負荷。", "若排瓶分鐘大，排瓶加班風險也會較高。"),
+        ],
+    },
+    "order_anomalies_exclude.csv": {"table_note": "只保留 exclude 異常的清單。", "fields": []},
+    "order_anomalies_warning.csv": {"table_note": "只保留 warning 異常的清單。", "fields": []},
+    "schedule_validation.csv": {
+        "table_note": "排程驗證明細表。只要這張表有內容，就表示至少有一個核心規則被違反。",
+        "fields": [
+            ("order_id", "被驗證出問題的訂單。", "用來定位哪一張單違規。", "若正式版要交付，理想上這張表應該是空的。"),
+            ("severity", "問題嚴重程度。", "常見為 error 或 warning。", "正式版最少要做到 error = 0。"),
+            ("issue_type", "違規類型代碼。", "例如無排程、先後順序錯誤、缺工序等。", "可快速聚焦是哪種邏輯出問題。"),
+            ("message", "驗證訊息。", "更完整描述規則違反內容。", "最適合拿來 debug。"),
+        ],
+    },
+    "schedule_validation_summary.csv": {
+        "table_note": "排程驗證摘要表。比起 validation 明細，這張更適合快速確認正式結果是否可交付。",
+        "fields": [
+            ("metric", "驗證指標名稱。", "例如 total_issues、error_count 等。", "用來快速看排程是否仍有硬性違規。"),
+            ("value", "該指標的數值。", "代表 validation 的統計結果。", "正式版通常至少要確保 total_issues 與 error_count 為 0。"),
+        ],
+    },
+    "order_source_links.csv": {
+        "table_note": "來源資料對照表。用來看每張 P 訂單是怎麼去對到原始資料來源的。",
+        "fields": [
+            ("p_order_id", "GA 內部使用的 P 訂單編號。", "是目前模型主鍵之一。", "應可和 tasks、audit 表串接。"),
+            ("product_name", "產品名稱。", "幫助人工確認映射合理性。", "若名稱相差很大，可能配對錯誤。"),
+            ("time_ready_core_candidates", "由 ready 時間與核心碼推估出的候選資訊。", "反映模型初步比對線索。", "可用來回查為何會配到某張來源單。"),
+            ("due_serial", "從訂單編號或資料中抽出的交期序列資訊。", "作為比對輔助。", "若和實際交期差很多，需再清洗資料。"),
+            ("quantity", "訂單需求數量。", "常作為來源匹配分數的一部分。", "若數量落差很大，映射可信度通常偏低。"),
+            ("best_match_score", "目前最佳配對分數。", "分數愈高通常代表匹配愈可信。", "很低時應人工複核。"),
+            ("match_count", "候選配對筆數。", "代表這張單有多少可能來源。", "太多時表示資料歧義高。"),
+            ("bom_match_count", "在 BOM 層成功對到的候選數。", "反映 BOM 映射完整度。", "若為 0，通常代表模型是用 fallback。"),
+            ("manufacturing_efficiency_match_count", "在製造效能表成功對到的候選數。", "用來看製造工時資料是否充足。", "若為 0，製造工時可能不夠可靠。"),
+            ("filling_efficiency_match_count", "在充填效能表成功對到的候選數。", "用來看排瓶/充填工時資料是否充足。", "若為 0，包裝段估算可信度較低。"),
+            ("source_order_ids", "實際匹配到的來源訂單編號集合。", "方便人工追資料。", "可直接拿去原始檔搜尋。"),
+            ("source_product_codes", "匹配到的來源產品代碼集合。", "幫助核對核心碼。", "若代碼分散太多，表示映射不穩。"),
+            ("source_core_codes", "匹配到的來源核心碼集合。", "是產品辨識的重要依據。", "核心碼若與預期不符，應視為高風險。"),
+        ],
+    },
+    "machine_counts.csv": {
+        "table_note": "模型使用的機器台數表。用來確認程式實際採用了哪些機器台數設定。",
+        "fields": [
+            ("machine_type", "機器類型名稱。", "對應排程內的設備名稱。", "應和日排程中的機器名稱一致。"),
+            ("count", "模型假設的可用台數。", "直接影響該設備每日總容量。", "若業主提供台數不同，這張表一定要先對。"),
+        ],
+    },
+    "order_model_audit.csv": {
+        "table_note": "建模稽核表。用來看每張訂單被模型轉成了哪些參數，是 debug 與報告的重要依據。",
+        "fields": [
+            ("order_id", "訂單編號。", "模型主鍵。", "應和其他所有主表一致。"),
+            ("product_name", "產品名稱。", "方便人工辨識。", "若與來源資料不一致，要先處理資料清洗。"),
+            ("source_order_id", "對到的原始來源訂單編號。", "追溯資料來源用。", "找不到時通常代表用 fallback 推估。"),
+            ("source_product_code", "對到的原始產品代碼。", "用來追核心碼與 ml。", "可拿去比對 BOM 與效能表。"),
+            ("source_core_code", "對到的核心碼。", "是跨表映射的重要識別欄。", "錯了通常整張單的建模都會歪掉。"),
+            ("due_date", "交期。", "排程終點限制。", "必須晚於主要工序安排日。"),
+            ("raw_ready_date", "原料 ready 日期。", "製造最早起點之一。", "若晚於交期則為硬性無解。"),
+            ("material_ready_date", "物料 ready 日期。", "排瓶與充填最早起點。", "若太晚會直接擠壓充填窗。"),
+            ("quantity", "需求量。", "決定製造/充填總量基礎。", "若和原始資料差異大，後續所有時間都會失真。"),
+            ("manufacturing_item_count", "該訂單被拆成幾個製造子流程。", "雙層劑型等通常會大於 1。", "若明顯不合理，表示 BOM 拆解有問題。"),
+            ("manufacturing_processes", "模型識別出的製造流程名稱集合。", "用來看這單究竟走了哪些製程。", "可直接核對業主對產品製程的理解。"),
+            ("manufacturing_machines", "這些製造流程對應到的機器集合。", "反映機器需求。", "若關鍵機器抓錯，排程容量會整個偏掉。"),
+            ("manufacturing_batch_total", "總製造批次數。", "用來看製造負荷。", "不應該出現 1.5 這種小數批次。"),
+            ("manufacturing_premix_total_minutes", "所有預攪加總分鐘數。", "反映製造前段耗時。", "通常應與批次數與效能表一致。"),
+            ("manufacturing_mix_clean_total_minutes", "所有攪料清洗加總分鐘數。", "反映製造主體負荷。", "是檢查調製端是否合理的重要欄。"),
+            ("filling_machine", "模型採用的充填設備。", "影響充填容量。", "應與產品實務相符。"),
+            ("bottling_machine", "模型採用的排瓶設備。", "影響排瓶容量。", "若這欄錯，排瓶時間也會錯。"),
+            ("filling_minutes", "估算的充填總分鐘。", "是充填段工作量。", "和實際 tasks 表加總應大致一致。"),
+            ("bottling_minutes", "估算的排瓶總分鐘。", "是排瓶段工作量。", "和實際 tasks 表加總應大致一致。"),
+            ("filling_people", "模型採用的充填配置人數。", "會影響充填人力分鐘。", "若和現場認知不同，需調整假設。"),
+            ("bottling_people", "模型採用的排瓶配置人數。", "會影響排瓶人力分鐘。", "理論上不應出現小數。"),
+            ("source_match_count", "來源匹配候選數。", "反映映射確定性。", "太多時表示需人工確認。"),
+            ("source_best_match_score", "最佳映射分數。", "數值愈高通常可信度愈高。", "低分訂單應列為後續檢查重點。"),
+            ("bom_match_count", "BOM 成功對應次數。", "看 BOM 映射完整度。", "若太低，製程拆解可能不穩。"),
+            ("manufacturing_efficiency_match_count", "製造效能對應次數。", "看製造工時資料完整度。", "太低時調製分鐘可信度不足。"),
+            ("filling_efficiency_match_count", "充填效能對應次數。", "看包裝工時資料完整度。", "太低時排瓶/充填分鐘可信度不足。"),
+        ],
+    },
+}
+
+OUTPUT_FIELD_NOTES["order_anomalies_exclude.csv"]["fields"] = OUTPUT_FIELD_NOTES["order_anomalies.csv"]["fields"]
+OUTPUT_FIELD_NOTES["order_anomalies_warning.csv"]["fields"] = OUTPUT_FIELD_NOTES["order_anomalies.csv"]["fields"]
+
+
+def write_output_field_notes(output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    note_dir = output_dir / "欄位備註表"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    master_path = note_dir / "欄位備註總表.csv"
+    with master_path.open("w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.writer(file)
+        writer.writerow(["表單檔名", "表單用途", "欄位名稱", "欄位說明", "如何判讀", "合理性檢查重點"])
+        for filename, config in OUTPUT_FIELD_NOTES.items():
+            table_note = str(config.get("table_note", ""))
+            fields = list(config.get("fields", []))
+            for field_name, meaning, reading, check in fields:
+                writer.writerow([filename, table_note, field_name, meaning, reading, check])
+
+    for filename, config in OUTPUT_FIELD_NOTES.items():
+        safe_stem = Path(filename).stem
+        note_path = note_dir / f"{safe_stem}_欄位備註表.csv"
+        with note_path.open("w", newline="", encoding="utf-8-sig") as file:
+            writer = csv.writer(file)
+            writer.writerow(["表單檔名", "表單用途", "欄位名稱", "欄位說明", "如何判讀", "合理性檢查重點"])
+            table_note = str(config.get("table_note", ""))
+            fields = list(config.get("fields", []))
+            for field_name, meaning, reading, check in fields:
+                writer.writerow([filename, table_note, field_name, meaning, reading, check])
+
+
 def allows_same_day_bottling(order: Order, fill_day: date) -> bool:
     return (
         order.filling_item.bottling_machine_minutes > 0
@@ -2238,6 +2471,12 @@ def _display_integer(value: float | int) -> int:
     return int(round(float(value)))
 
 
+def _infer_actual_assigned_people(task: ScheduledTask) -> int:
+    if abs(task.machine_minutes) <= 1e-6:
+        return 0
+    return max(1, int(round(task.labor_minutes / task.machine_minutes)))
+
+
 def _group_output_tasks(tasks: list[ScheduledTask]) -> list[ScheduledTask]:
     grouped: dict[tuple[str, str, str, date, str, str], ScheduledTask] = {}
     ordered_keys: list[tuple[str, str, str, date, str, str]] = []
@@ -3075,10 +3314,24 @@ def write_schedule_outputs(schedule: ScheduleResult, output_dir: Path) -> None:
     with daily_path.open("w", newline="", encoding="utf-8-sig") as file:
         writer = csv.writer(file)
         writer.writerow(["日期", "人力類型", "已用人力分鐘", "正常人力分鐘", "超時分鐘"])
-        for (labor_group, current_day), used_minutes in sorted(schedule.daily_labor_usage.items()):
-            if current_day == date.min:
+        daily_base_usage: dict[tuple[str, date], float] = defaultdict(float)
+        for task in schedule.task_records:
+            if task.task_type in {"Cat1", "Cat2"}:
+                daily_base_usage[("manufacturing", task.scheduled_date)] += task.labor_minutes
+            elif task.task_type == "Cat3":
+                daily_base_usage[("bottling", task.scheduled_date)] += task.labor_minutes
+            elif task.task_type == "Cat4":
+                daily_base_usage[("filling", task.scheduled_date)] += task.machine_minutes
+
+        regular_by_group = {
+            "manufacturing": LABOR_CONFIG["manufacturing"]["regular_minutes"],
+            "bottling": PROCESS_OVERTIME_REGULAR_MINUTES["bottling"],
+            "filling": PROCESS_OVERTIME_REGULAR_MINUTES["filling"],
+        }
+        for (labor_group, current_day), used_minutes in sorted(daily_base_usage.items()):
+            if current_day == date.min or used_minutes <= 0:
                 continue
-            regular_minutes = LABOR_CONFIG[labor_group]["regular_minutes"]
+            regular_minutes = regular_by_group[labor_group]
             writer.writerow(
                 [
                     current_day.isoformat(),
@@ -3116,15 +3369,21 @@ def write_schedule_outputs(schedule: ScheduleResult, output_dir: Path) -> None:
         )
 
 
-def write_reference_format_output(schedule: ScheduleResult, output_dir: Path) -> None:
+def write_reference_format_output(
+    schedule: ScheduleResult,
+    orders: list[Order],
+    output_dir: Path,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary = build_schedule_summary(schedule)
     grouped_tasks = _group_output_tasks(schedule.task_records)
+    order_map = {order.order_id: order for order in orders}
 
     manufacturing_group_totals: dict[tuple[str, str], int] = defaultdict(int)
     packaging_group_totals: dict[tuple[str, str], float] = defaultdict(float)
     manufacturing_group_ids: dict[tuple[str, str], int] = {}
     machine_day_slot_cursor: dict[tuple[date, str], int] = defaultdict(int)
+    order_day_bottling_next_slot: dict[tuple[str, date], int] = defaultdict(int)
 
     for task in grouped_tasks:
         if task.task_type in {"Cat1", "Cat2"}:
@@ -3149,6 +3408,7 @@ def write_reference_format_output(schedule: ScheduleResult, output_dir: Path) ->
                 "人力別",
                 "機台別",
                 "標準配置人數",
+                "實際安排人數",
                 "總需求量",
                 "當日安排量",
                 "每單位時間(min)",
@@ -3163,9 +3423,25 @@ def write_reference_format_output(schedule: ScheduleResult, output_dir: Path) ->
             ]
         )
 
-        for task in grouped_tasks:
+        task_priority = {"Cat1": 1, "Cat2": 2, "Cat3": 3, "Cat4": 4}
+        for task in sorted(
+            grouped_tasks,
+            key=lambda item: (
+                item.scheduled_date,
+                task_priority.get(item.task_type, 99),
+                item.order_id,
+                item.machine_type,
+                item.detail,
+            ),
+        ):
             slot_count = max(1, math.ceil(task.machine_minutes / 5.0))
-            start_slot = machine_day_slot_cursor[(task.scheduled_date, task.machine_type)]
+            dependency_slot = 0
+            if task.task_type == "Cat4":
+                dependency_slot = order_day_bottling_next_slot[(task.order_id, task.scheduled_date)]
+            start_slot = max(
+                machine_day_slot_cursor[(task.scheduled_date, task.machine_type)],
+                dependency_slot,
+            )
             end_slot = start_slot + slot_count - 1
             machine_day_slot_cursor[(task.scheduled_date, task.machine_type)] = end_slot + 1
 
@@ -3174,16 +3450,32 @@ def write_reference_format_output(schedule: ScheduleResult, output_dir: Path) ->
                 seq = "10" if task.task_type == "Cat1" else "12"
                 demand_units = manufacturing_group_totals[group_key]
                 arranged_units = 1
-                planned_people = "1"
+                standard_people = 1
+                actual_people = 1
                 subtask_id = f"{task.order_id}_{manufacturing_group_ids[group_key]}"
                 unit_minutes = _display_integer(task.machine_minutes)
             else:
                 seq = "18" if task.task_type == "Cat3" else "19"
                 demand_units = _display_integer(packaging_group_totals[(task.order_id, task.task_type)])
                 arranged_units = _display_integer(task.machine_minutes / 5.0)
-                planned_people = "1" if task.task_type == "Cat3" else "4"
+                source_order = order_map.get(task.order_id)
+                if task.task_type == "Cat3":
+                    standard_people = (
+                        source_order.filling_item.bottling_people
+                        if source_order is not None
+                        else _infer_actual_assigned_people(task)
+                    )
+                else:
+                    standard_people = (
+                        source_order.filling_item.filling_people
+                        if source_order is not None
+                        else _infer_actual_assigned_people(task)
+                    )
+                actual_people = _infer_actual_assigned_people(task)
                 subtask_id = f"{task.order_id}_{task.task_type}_{seq}"
                 unit_minutes = 5
+                if task.task_type == "Cat3":
+                    order_day_bottling_next_slot[(task.order_id, task.scheduled_date)] = end_slot + 1
 
             writer.writerow(
                 [
@@ -3195,7 +3487,8 @@ def write_reference_format_output(schedule: ScheduleResult, output_dir: Path) ->
                     _display_task_stage(task.task_type),
                     _display_labor_type(task.task_type),
                     _display_machine_label(task.machine_type),
-                    planned_people,
+                    standard_people,
+                    actual_people,
                     _display_integer(demand_units),
                     _display_integer(arranged_units),
                     unit_minutes,
@@ -3225,6 +3518,7 @@ def write_reference_format_output(schedule: ScheduleResult, output_dir: Path) ->
                     f"總排瓶分鐘數={_display_integer(summary['total_bottling_minutes'])}; "
                     f"總充填分鐘數={_display_integer(summary['total_filling_minutes'])}"
                 ),
+                "",
                 "",
                 "",
                 "",
@@ -3602,6 +3896,11 @@ def load_seed_order_ids(schedule_csv_path: Path) -> tuple[str, ...]:
     )
 
 
+def build_timestamped_output_dir(base_output_dir: Path) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return base_output_dir.parent / f"{base_output_dir.name}_{timestamp}"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="根據 Excel 訂單資料執行遺傳算法排程。")
     parser.add_argument(
@@ -3636,6 +3935,7 @@ def main() -> None:
         pass
 
     args = parse_args()
+    args.output_dir = build_timestamped_output_dir(args.output_dir)
     loader = WorkbookLoader(args.workbook)
     MACHINE_COUNTS.update(loader.machine_counts)
     orders = loader.load_orders()
@@ -3666,13 +3966,14 @@ def main() -> None:
     write_daily_manufacturing_schedule_output(best_schedule, args.output_dir)
     write_daily_packaging_schedule_output(best_schedule, args.output_dir)
     write_manufacturing_cleaning_audit_output(best_schedule, args.output_dir)
-    write_reference_format_output(best_schedule, args.output_dir)
+    write_reference_format_output(best_schedule, orders, args.output_dir)
     write_order_anomalies_output(orders, anomalies, args.output_dir)
     validation_issues = validate_schedule(best_schedule, schedulable_orders)
     write_schedule_validation_output(validation_issues, args.output_dir)
     write_source_link_output(source_links, args.output_dir)
     write_machine_counts_output(loader.machine_counts, args.output_dir)
     write_order_model_audit_output(orders, source_links, args.output_dir)
+    write_output_field_notes(args.output_dir)
 
     excluded_anomalies = [anomaly for anomaly in anomalies if anomaly.exclude_from_optimization]
     warning_anomalies = [anomaly for anomaly in anomalies if not anomaly.exclude_from_optimization]
