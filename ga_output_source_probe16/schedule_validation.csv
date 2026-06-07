@@ -1,2 +1,0 @@
-﻿order_id,severity,issue_type,message
-P087,error,bottling_not_previous_day,Fill day 2023-06-11 has no bottling on the previous day.

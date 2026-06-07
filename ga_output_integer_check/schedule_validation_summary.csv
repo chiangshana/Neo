@@ -1,7 +1,0 @@
-﻿metric,value
-total_issues,79
-error_count,79
-warning_count,0
-issue_type:bottling_minutes_mismatch,77
-issue_type:bottling_not_previous_day,1
-issue_type:order_not_scheduled,1

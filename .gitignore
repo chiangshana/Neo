@@ -1,0 +1,32 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# GA run outputs and demo packages are regenerated from the workbook and parameters.
+ga_*/
+ga_output*/
+ga_cleanup*/
+ga_review*/
+ga_opt_bottling_basis*/
+ga_intuitive_output*/
+ga_calendar_export*/
+ga_packaging_output*/
+ga_gui_output*/
+FactoryGAScheduler_DEMO_CLEAN_*/
+FactoryGAScheduler_DEMO_CLEAN_*
+
+# Packaging artifacts.
+build/
+dist/
+installer/
+_build_tmp/
+installer/*.exe
+*.spec
+
+# Local scratch files.
+*.log
+*.tmp
+*.TMP
+CAB*.TMP
+workbook_tmp.xlsx
