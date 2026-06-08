@@ -1,0 +1,5 @@
+﻿順序,檔案名稱,來源檔案,用途
+1,01_排程檢查報告.xlsx,schedule_check_report.xlsx,固定格式 Excel 檢查報告，對齊業主提供的檢查表欄位。
+2,02_當日排程確切時間.xlsx,daily_schedule_exact_time.xlsx,含日內機台/人力時段檢查；僅在 validation 無阻擋錯誤時可作派工表。
+3,03_Google日曆匯入檔.ics,google_calendar_schedule.ics,可匯入 Google Calendar 的排程事件檔。
+4,04_輔助檢查資料.xlsx,supporting_outputs.xlsx,把一頁式總覽、驗證摘要、瓶頸、異常、稽核與欄位備註集中在同一本 Excel。
