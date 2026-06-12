@@ -1,0 +1,26 @@
+﻿order_id,severity,issue_type,message
+P071,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P011,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P011,warning,manufacturing_too_early_before_due,Cat1 on 2023-03-23 is earlier than 30 days before due_date 2023-04-28.
+P018,warning,manufacturing_too_early_before_due,Cat1 on 2023-03-22 is earlier than 30 days before due_date 2023-05-04.
+P022,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P007,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P028,warning,manufacturing_too_early_before_due,Cat1 on 2023-04-14 is earlier than 30 days before due_date 2023-05-15.
+P030,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P035,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P049,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P060,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P060,warning,manufacturing_too_early_before_due,Cat1 on 2023-04-12 is earlier than 30 days before due_date 2023-05-30.
+P048,warning,manufacturing_too_early_before_due,Cat1 on 2023-03-06 is earlier than 30 days before due_date 2023-06-02.
+P059,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P062,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P051,warning,manufacturing_too_early_before_due,Cat1 on 2023-03-24 is earlier than 30 days before due_date 2023-06-12.
+P074,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P074,warning,manufacturing_too_early_before_due,Cat1 on 2023-03-21 is earlier than 30 days before due_date 2023-06-14.
+P057,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P083,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P083,warning,manufacturing_too_early_before_due,Cat1 on 2023-03-08 is earlier than 30 days before due_date 2023-06-21.
+P114,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P114,warning,manufacturing_too_early_before_due,Cat1 on 2023-06-12 is earlier than 30 days before due_date 2023-07-13.
+P087,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.
+P096,warning,filling_days_not_contiguous,Order filling is split across non-contiguous workdays.

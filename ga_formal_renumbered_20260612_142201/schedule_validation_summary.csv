@@ -1,0 +1,8 @@
+﻿metric,value
+total_issues,25
+blocking_issue_count,0
+error_count,0
+warning_count,25
+delivery_ready_if_error_count_zero,yes
+issue_type:filling_days_not_contiguous,16
+issue_type:manufacturing_too_early_before_due,9

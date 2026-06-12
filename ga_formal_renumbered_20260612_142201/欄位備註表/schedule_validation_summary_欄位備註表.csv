@@ -1,0 +1,3 @@
+﻿表單檔名,表單用途,欄位名稱,欄位說明,如何判讀,合理性檢查重點
+schedule_validation_summary.csv,排程驗證摘要表。比起 validation 明細，這張更適合快速確認正式結果是否可交付。,metric,驗證指標名稱。,例如 blocking_issue_count、error_count、warning_count 等。,用來快速看排程是否仍有硬性違規。
+schedule_validation_summary.csv,排程驗證摘要表。比起 validation 明細，這張更適合快速確認正式結果是否可交付。,value,該指標的數值。,代表 validation 的統計結果。,正式版通常至少要確保 blocking_issue_count 與 error_count 為 0。

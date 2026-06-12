@@ -1,0 +1,13 @@
+﻿表單檔名,表單用途,欄位名稱,欄位說明,如何判讀,合理性檢查重點
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,order_id,訂單編號。,對應排程中的 order_id。,可回頭查是否有出現在主排程內。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,product_name,產品名稱。,方便業務與現場辨識。,若產品名稱與訂單對不起來，要先檢查資料映射。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,severity,異常嚴重程度，常見為 exclude 或 warning。,exclude 代表不進 GA 主優化集合；warning 代表仍可排但要注意。,是判讀是否漏排的第一關鍵。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,anomaly_type,異常類型代碼。,方便快速分類問題來源。,若同一訂單有多種異常，會有多列。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,exclude_from_optimization,是否從主優化集合排除。,Y 代表不會進正式排程；N 代表只是提醒。,所有沒排進去的訂單都應先在這欄找到 Y。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,message,異常的文字說明。,直接描述為什麼不合理或風險高。,是最適合向老師或業主說明的欄位。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,due_date,交期。,用來和 ready date 比較。,若 ready 在 due 後，通常就是硬性無解。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,raw_ready_date,原料齊備可開始製造的日期。,製造最早可動工的依據之一。,若晚於交期，代表製造根本來不及。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,material_ready_date,物料/包材齊備可進包裝的日期。,排瓶與充填是否可開始的重要日期。,若晚於交期，通常直接無法排。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,manufacturing_batch_count,此訂單需要的總批次數。,可看製造壓力。,批次很多但窗期很短時，通常會被標 warning。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,filling_minutes,估算的充填分鐘。,用來理解此單在充填段的負荷。,分鐘太大時常是瓶頸來源。
+order_anomalies.csv,異常訂單總表。列出所有被偵測到的 exclude 或 warning 訂單與原因。,bottling_minutes,估算的排瓶分鐘。,用來理解此單在排瓶段的負荷。,若排瓶分鐘大，排瓶加班風險也會較高。

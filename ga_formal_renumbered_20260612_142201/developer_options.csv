@@ -1,0 +1,19 @@
+﻿設定代碼,設定名稱,設定值,目前狀態
+data_source_mode,資料來源模式,,未設定
+google_sheet_id,Google Sheet ID,,未設定
+schedule_mode,排程模式,full_ga,已接入排程運算或輸出
+calendar_capacity_path,工作日曆與人力容量檔,calendar_capacity.xlsx,已接入排程運算或輸出
+manufacturing_efficiency_path,外部製造效能表,,未設定
+filling_efficiency_path,外部充填效能表,,未設定
+exclude_weekends,排除週六日,是,已接入排程運算或輸出
+frozen_schedule_csv,凍結排程 CSV,,未設定
+daily_rerun_time,每日重新排程時間,,未設定
+line_change_minutes,換線分鐘,0,已接入排程運算或輸出
+break_start_time,每日休息開始,12:00,已接入排程運算或輸出
+break_end_time,每日休息結束,13:00,已接入排程運算或輸出
+split_unit,拆單單位,,未設定
+minimum_fill_liters,最小充填量(L),,未設定
+keep_split_days_contiguous,拆單日期盡量連續,是,已接入排程運算或輸出
+small_printer_count,小噴印機數量,,未設定
+normal_printer_count,正常噴印機數量,,未設定
+output_week_view,輸出派工週視圖,是,已接入排程運算或輸出
